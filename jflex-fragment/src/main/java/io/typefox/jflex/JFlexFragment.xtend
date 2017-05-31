@@ -38,9 +38,13 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	@Accessors String options = null
 	@Accessors String declarations = null
 	@Accessors String rules = null
+	@Accessors String fullFlexFile = null
 	
 	override checkConfiguration(Issues issues) {
 		loader.preInvoke
+		if (fullFlexFile !== null) {
+			return;
+		}
 		val grammarURI = language.grammar.eResource.URI
 		val flex = grammarURI.trimFileExtension.appendFileExtension("flex")
 		val reader = new InputStreamReader(language.grammar.eResource.resourceSet.URIConverter.createInputStream(flex))
@@ -50,10 +54,13 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	}
 	
 	override generate() {
-		val flexFile = flexerClassName.name.replace('.','/')+".flex"
-		val file = fileAccessFactory.createTextFile(flexFile, generateFlex)
-		val fullPath = projectConfig.runtime.srcGen.path + "/" +flexFile
-		file.writeTo(projectConfig.runtime.srcGen)
+		var fullPath = fullFlexFile
+		if (fullPath === null) {
+			val flexFile = flexerClassName.name.replace('.','/')+".flex"
+			val file = fileAccessFactory.createTextFile(flexFile, generateFlex)
+			file.writeTo(projectConfig.runtime.srcGen)
+			fullPath = projectConfig.runtime.srcGen.path + "/" +flexFile
+		}
 		loader.runJFlex("-d",
 				fullPath.substring(0, fullPath.lastIndexOf('/')),
 				fullPath)

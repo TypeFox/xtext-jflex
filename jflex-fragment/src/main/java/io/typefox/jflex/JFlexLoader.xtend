@@ -25,8 +25,8 @@ import org.apache.log4j.Logger
 class JFlexLoader {
 	
 	final static Logger log = Logger.getLogger(typeof(JFlexLoader))
-	static final String DOWNLOAD_URL = "http://jflex.de/jflex-1.4.3.zip"
-	static final String MAIN_CLASS = "JFlex.Main"
+	static final String DOWNLOAD_URL = "http://jflex.de/jflex-1.6.1.zip"
+	static final String MAIN_CLASS = "jflex.Main"
 	ClassLoader loader = JFlexLoader.getClassLoader
 	String downloadTo = "./.jflex.jar"
 	boolean askBeforeDownload = false

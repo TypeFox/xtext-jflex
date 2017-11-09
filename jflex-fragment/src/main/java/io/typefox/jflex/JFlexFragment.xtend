@@ -40,7 +40,7 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	@Inject GrammarNaming grammarNaming
 	@Inject ContentAssistGrammarNaming contentAssistNaming
 	
-	@Accessors val loader = new JFlexLoader
+	@Accessors JFlexLoader loader = new JFlexLoader
 	
 	@Accessors String options = null
 	@Accessors String declarations = null

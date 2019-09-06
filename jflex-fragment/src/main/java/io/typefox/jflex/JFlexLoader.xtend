@@ -21,6 +21,7 @@ import java.net.URLClassLoader
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import org.apache.log4j.Logger
+import org.eclipse.xtend.lib.annotations.Accessors
 
 class JFlexLoader {
 	
@@ -29,7 +30,9 @@ class JFlexLoader {
 	static final String MAIN_CLASS = "JFlex.Main"
 	ClassLoader loader = JFlexLoader.getClassLoader
 	String downloadTo = "./.jflex.jar"
-	boolean askBeforeDownload = false
+	
+	@Accessors boolean allowDownloading = true
+	@Accessors boolean askBeforeDownload = false
 
 	def ClassLoader getClassLoader() {
 		return loader
@@ -47,10 +50,6 @@ class JFlexLoader {
 
 	def void setDownloadPath(String downloadTo) {
 		this.downloadTo = downloadTo
-	}
-
-	def void setAskBeforeDownload(boolean askBeforeDownload) {
-		this.askBeforeDownload = askBeforeDownload
 	}
 
 	def String getDownloadTo() {
@@ -92,6 +91,9 @@ class JFlexLoader {
 	}
 
 	def private boolean download(File jarFile) throws IOException {
+		if (!allowDownloading)
+			return false;
+		
 		val File tempFile = File.createTempFile("JFlex", "zip")
 		tempFile.deleteOnExit()
 		if (askBeforeDownload) {

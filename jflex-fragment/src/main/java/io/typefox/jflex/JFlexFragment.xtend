@@ -34,6 +34,8 @@ import org.eclipse.xtext.xtext.generator.parser.antlr.KeywordHelper
 
 import static extension org.eclipse.xtext.GrammarUtil.*
 import static extension org.eclipse.xtext.xtext.generator.model.TypeReference.*
+import static extension org.eclipse.emf.common.util.URI.*
+import jflex.Main
 
 class JFlexFragment extends AbstractXtextGeneratorFragment {
 	
@@ -42,13 +44,12 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	@Inject GrammarNaming grammarNaming
 	@Inject ContentAssistGrammarNaming contentAssistNaming
 	
-	@Accessors JFlexLoader loader = new JFlexLoader
-	
 	String userCode = null
 	String declarations = null
 	String rules = null
 	
 	@Accessors String fullFlexFile = null
+	@Accessors String flexFragmentFile = null
 	@Accessors String extraOptions = null
 	
 	@Accessors boolean generateUserCode = true
@@ -60,12 +61,11 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	ArrayList<String> skippedKeywords = new ArrayList<String>
 	
 	override checkConfiguration(Issues issues) {
-		loader.preInvoke
 		if (fullFlexFile !== null) {
 			return;
 		}
 		val grammarURI = language.grammar.eResource.URI
-		val flex = grammarURI.trimFileExtension.appendFileExtension("flex")
+		val flex = flexFragmentFile?.createURI ?: grammarURI.trimFileExtension.appendFileExtension("flex")
 		val reader = new InputStreamReader(language.grammar.eResource.resourceSet.URIConverter.createInputStream(flex))
 		
 		// JFlex file is divided into parts by a single line starting with %%
@@ -94,9 +94,10 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 			file.writeTo(projectConfig.runtime.srcGen)
 			fullPath = projectConfig.runtime.srcGen.path + "/" +flexFile
 		}
-		loader.runJFlex("-d",
-				fullPath.substring(0, fullPath.lastIndexOf('/')),
-				fullPath)
+		Main.main(#[
+			"-d",
+			fullPath.substring(0, fullPath.lastIndexOf('/')),
+			fullPath])
 		// custom lexer
 		val customParser = fileAccessFactory.createJavaFile(customLexerName, generateCustomLexer(customLexerName, grammarNaming.getLexerClass(language.grammar)))
 		customParser.writeTo(projectConfig.runtime.srcGen)
@@ -211,7 +212,7 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 			
 			@SuppressWarnings({"all"})
 		«ELSE»
-			«IF userCode != null»
+			«IF userCode !== null»
 				«userCode»
 			«ENDIF»
 		«ENDIF»

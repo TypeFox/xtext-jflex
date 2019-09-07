@@ -181,6 +181,17 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 			public void reset() {
 				delegate.reset(new «CharArrayReader.typeRef»(data, 0, data_length));
 			}
+
+			public String getErrorMessage(Token t) {
+				if (t.getType() == Token.INVALID_TOKEN_TYPE)
+					return String.format("No viable alternative at token '%s'", t.getText());
+				
+				return String.format("Unknown lexer error at '%s'", t.getText());
+			}
+			
+			public «flexerClassName» getDelegate() {
+				return delegate;
+			}
 		}
 	'''
 	

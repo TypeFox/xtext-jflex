@@ -14,6 +14,8 @@ import java.io.CharArrayReader
 import java.io.InputStreamReader
 import java.io.Reader
 import java.lang.reflect.Field
+import java.util.ArrayList
+import java.util.regex.Pattern
 import org.antlr.runtime.ANTLRStringStream
 import org.antlr.runtime.CharStream
 import org.antlr.runtime.RecognitionException
@@ -42,10 +44,20 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	
 	@Accessors JFlexLoader loader = new JFlexLoader
 	
-	@Accessors String options = null
-	@Accessors String declarations = null
-	@Accessors String rules = null
+	String userCode = null
+	String declarations = null
+	String rules = null
+	
 	@Accessors String fullFlexFile = null
+	@Accessors String extraOptions = null
+	
+	@Accessors boolean generateUserCode = true
+	@Accessors boolean generateIntegrationCode = true
+	@Accessors boolean generateOptions = true
+	@Accessors boolean generateKeywordRules = true
+	@Accessors boolean generateTerminalRules = true
+	
+	ArrayList<String> skippedKeywords = new ArrayList<String>
 	
 	override checkConfiguration(Issues issues) {
 		loader.preInvoke
@@ -55,9 +67,23 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 		val grammarURI = language.grammar.eResource.URI
 		val flex = grammarURI.trimFileExtension.appendFileExtension("flex")
 		val reader = new InputStreamReader(language.grammar.eResource.resourceSet.URIConverter.createInputStream(flex))
-		val flexConfig = CharStreams.toString(reader).split("%%")
-		declarations = flexConfig.head
-		rules = flexConfig.get(1)
+		
+		// JFlex file is divided into parts by a single line starting with %%
+		val pattern = Pattern::compile("^%%", Pattern::MULTILINE)
+		val flexConfig = pattern.split(CharStreams.toString(reader))
+		if (flexConfig.size < 2 || flexConfig.size > 3) {
+			throw new RuntimeException("Invalid JFlex file: " + flex)
+		}
+		
+		val iterator = flexConfig.iterator
+		if (flexConfig.size == 3) {
+			// Jflex file contains user code at the top
+			userCode = iterator.next
+		}
+		
+		// Extract declarations/options and rules
+		declarations = iterator.next
+		rules = iterator.next
 	}
 	
 	override generate() {
@@ -159,89 +185,104 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	'''
 	
 	def StringConcatenationClient generateFlex() '''
-		«codeConfig.fileHeader»
-		package «flexerClassName.packageName»;
-		
-		import java.io.Reader;
-		import java.io.IOException;
-		
-		import org.antlr.runtime.Token;
-		import org.antlr.runtime.CommonToken;
-		import org.antlr.runtime.TokenSource;
-		
-		import static «grammarNaming.getInternalParserClass(language.grammar)».*;
-		
-		@SuppressWarnings({"all"})
+		«IF generateUserCode»
+			«codeConfig.fileHeader»
+			package «flexerClassName.packageName»;
+			
+			import java.io.Reader;
+			import java.io.IOException;
+			
+			import org.antlr.runtime.Token;
+			import org.antlr.runtime.CommonToken;
+			import org.antlr.runtime.TokenSource;
+			
+			import static «grammarNaming.getInternalParserClass(language.grammar)».*;
+			
+			@SuppressWarnings({"all"})
+		«ELSE»
+			«IF userCode != null»
+				«userCode»
+			«ENDIF»
+		«ENDIF»
 		%%
 		
-		%{
-			public final static TokenSource createTokenSource(Reader reader) {
-				return new «flexerClassName.simpleName»(reader);
-			}
-		
-			private int offset = 0;
+		«IF generateIntegrationCode»
+			%{
+				public final static TokenSource createTokenSource(Reader reader) {
+					return new «flexerClassName.simpleName»(reader);
+				}
 			
-			public void reset(Reader reader) {
-				yyreset(reader);
-				offset = 0;
-			}
-		
-			@Override
-			public Token nextToken() {
-				try {
-					int type = advance();
-					if (type == Token.EOF) {
-						return Token.EOF_TOKEN;
+				private int offset = 0;
+				
+				public void reset(Reader reader) {
+					yyreset(reader);
+					offset = 0;
+				}
+			
+				@Override
+				public Token nextToken() {
+					try {
+						int type = advance();
+						if (type == Token.EOF) {
+							return Token.EOF_TOKEN;
+						}
+						int length = yylength();
+						final String tokenText = yytext();
+						CommonToken result = new CommonTokenWithText(tokenText, type, Token.DEFAULT_CHANNEL, offset);
+						offset += length;
+						return result;
+					} catch (IOException e) {
+						throw new RuntimeException(e);
 					}
-					int length = yylength();
-					final String tokenText = yytext();
-					CommonToken result = new CommonTokenWithText(tokenText, type, Token.DEFAULT_CHANNEL, offset);
-					offset += length;
-					return result;
-				} catch (IOException e) {
-					throw new RuntimeException(e);
 				}
-			}
-		
-			@Override
-			public String getSourceName() {
-				return "FlexTokenSource";
-			}
-		
-			public static class CommonTokenWithText extends CommonToken {
-		
-				private static final long serialVersionUID = 1L;
-		
-				public CommonTokenWithText(String tokenText, int type, int defaultChannel, int offset) {
-					super(null, type, defaultChannel, offset, offset + tokenText.length() - 1);
-					this.text = tokenText;
+			
+				@Override
+				public String getSourceName() {
+					return "FlexTokenSource";
 				}
-			}
+			
+				public static class CommonTokenWithText extends CommonToken {
+			
+					private static final long serialVersionUID = 1L;
+			
+					public CommonTokenWithText(String tokenText, int type, int defaultChannel, int offset) {
+						super(null, type, defaultChannel, offset, offset + tokenText.length() - 1);
+						this.text = tokenText;
+					}
+				}
+			
+			%}
+		«ENDIF»
 		
-		%}
+		«IF generateOptions»
+			%unicode
+			%implements org.antlr.runtime.TokenSource
+			%class «flexerClassName.simpleName»
+			%function advance
+			%public
+			%int
+			%eofval{
+			return Token.EOF;
+			%eofval}
+		«ENDIF»
 		
-		%unicode
-		%implements org.antlr.runtime.TokenSource
-		%class «flexerClassName.simpleName»
-		%function advance
-		%public
-		%int
-		%eofval{
-		return Token.EOF;
-		%eofval}
-		«IF options !== null»
-			«options»
+		«IF extraOptions !== null»
+			«extraOptions»
 		«ENDIF»
 		
 		«IF declarations !== null»
 			«declarations»
-		«ELSE»
 		«ENDIF»
 		
 		%%
 		
 		«FOR kw : KeywordHelper.getHelper(language.grammar).allKeywords»
-			<YYINITIAL> "«kw»" { return «KeywordHelper.getHelper(language.grammar).getRuleName(kw)»; }
+			«val rule = KeywordHelper.getHelper(language.grammar).getRuleName(kw)»
+			«IF !skippedKeywords.contains(kw) && generateKeywordRules»
+				<YYINITIAL> "«kw»" { return «rule»; }
+			«ELSE»
+				// Skipped generated keyword: "«kw»" «rule»
+			«ENDIF»
 		«ENDFOR»
 		
 		«IF rules !== null»
@@ -249,8 +290,15 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 		«ENDIF»
 		
 		«FOR tr : language.grammar.allTerminalRules»
-			<YYINITIAL> {«tr.name»} { return RULE_«tr.name»; }
+			«IF generateTerminalRules»
+				<YYINITIAL> {«tr.name»} { return RULE_«tr.name»; }
+			«ELSE»
+				// Skipped generated rule: RULE_«tr.name»
+			«ENDIF»
 		«ENDFOR»
 	'''
 	
+	def addSkippedKeyword(String keyword) {
+		skippedKeywords.add(keyword)
+	}
 }

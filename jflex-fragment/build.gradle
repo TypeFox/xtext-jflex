@@ -11,4 +11,5 @@ description = 'Generator fragment for Xtext that integrates the JFlex lexer'
 
 dependencies {
 	compile "org.eclipse.xtext:org.eclipse.xtext.xtext.generator:${versions.xtext}"
+	compile "de.jflex:jflex:${versions.jflex}"
 }

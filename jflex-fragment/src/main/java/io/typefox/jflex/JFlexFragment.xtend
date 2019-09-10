@@ -15,11 +15,14 @@ import java.io.InputStreamReader
 import java.io.Reader
 import java.lang.reflect.Field
 import java.util.ArrayList
+import java.util.List
 import java.util.regex.Pattern
+import jflex.Main
 import org.antlr.runtime.ANTLRStringStream
 import org.antlr.runtime.CharStream
 import org.antlr.runtime.RecognitionException
 import org.antlr.runtime.Token
+import org.eclipse.emf.common.util.URI
 import org.eclipse.xtend.lib.annotations.Accessors
 import org.eclipse.xtend2.lib.StringConcatenationClient
 import org.eclipse.xtext.xtext.generator.AbstractXtextGeneratorFragment
@@ -32,10 +35,9 @@ import org.eclipse.xtext.xtext.generator.parser.antlr.ContentAssistGrammarNaming
 import org.eclipse.xtext.xtext.generator.parser.antlr.GrammarNaming
 import org.eclipse.xtext.xtext.generator.parser.antlr.KeywordHelper
 
+import static extension org.eclipse.emf.common.util.URI.*
 import static extension org.eclipse.xtext.GrammarUtil.*
 import static extension org.eclipse.xtext.xtext.generator.model.TypeReference.*
-import static extension org.eclipse.emf.common.util.URI.*
-import jflex.Main
 
 class JFlexFragment extends AbstractXtextGeneratorFragment {
 	
@@ -49,7 +51,7 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	String rules = null
 	
 	@Accessors String fullFlexFile = null
-	@Accessors String flexFragmentFile = null
+	List<String> flexFragmentFiles = newArrayList
 	@Accessors String extraOptions = null
 	
 	@Accessors boolean generateUserCode = true
@@ -60,30 +62,53 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 	
 	ArrayList<String> skippedKeywords = new ArrayList<String>
 	
+	def addFlexFragmentFile(String flexFragmentFile) {
+		this.flexFragmentFiles += flexFragmentFile		
+	}
+	
 	override checkConfiguration(Issues issues) {
 		if (fullFlexFile !== null) {
 			return;
 		}
 		val grammarURI = language.grammar.eResource.URI
-		val flex = flexFragmentFile?.createURI ?: grammarURI.trimFileExtension.appendFileExtension("flex")
-		val reader = new InputStreamReader(language.grammar.eResource.resourceSet.URIConverter.createInputStream(flex))
+		val flexFragmentUris = if (flexFragmentFiles.empty)
+			 	#[grammarURI.trimFileExtension.appendFileExtension("flex")]
+			else
+				flexFragmentFiles.map[createURI]  
+		flexFragmentUris.forEach [ flexFragmentUri |
+			val reader = new InputStreamReader(language.grammar.eResource.resourceSet.URIConverter.createInputStream(flexFragmentUri))
+			
+			// JFlex file is divided into parts by a single line starting with %%
+			val pattern = Pattern::compile("^%%", Pattern::MULTILINE)
+			val flexConfig = pattern.split(CharStreams.toString(reader))
+			if (flexConfig.size < 2 || flexConfig.size > 3) {
+				throw new RuntimeException("Invalid JFlex file: " + flexFragmentUri)
+			}
+			
+			val iterator = flexConfig.iterator
+			if (flexConfig.size == 3) {
+				// Jflex file contains user code at the top
+				if (userCode === null) 
+					userCode = iterator.next
+				else
+					userCode += iterator.next
+			}
+			
+			// Extract declarations/options and rules
+			if (declarations === null) 
+				declarations = iterator.next
+			else 
+				declarations += iterator.next
+				
+			if (rules === null)
+				rules = iterator.next
+			else 
+				rules += iterator.next
+		]
+	}
+	
+	protected def loadFlexFragment(URI uri) {
 		
-		// JFlex file is divided into parts by a single line starting with %%
-		val pattern = Pattern::compile("^%%", Pattern::MULTILINE)
-		val flexConfig = pattern.split(CharStreams.toString(reader))
-		if (flexConfig.size < 2 || flexConfig.size > 3) {
-			throw new RuntimeException("Invalid JFlex file: " + flex)
-		}
-		
-		val iterator = flexConfig.iterator
-		if (flexConfig.size == 3) {
-			// Jflex file contains user code at the top
-			userCode = iterator.next
-		}
-		
-		// Extract declarations/options and rules
-		declarations = iterator.next
-		rules = iterator.next
 	}
 	
 	override generate() {

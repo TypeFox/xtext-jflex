@@ -115,7 +115,7 @@ class JFlexFragment extends AbstractXtextGeneratorFragment {
 		''').addConfiguredBinding('ContentAssistLexerProvider', '''
 			// disabled contribution from XtextAntlrGeneratorFragment2
 		''')
-		ideBindings.contributeTo(language.eclipsePluginGenModule)
+		ideBindings.contributeTo(language.ideGenModule)
 	}
 	
 	def getCustomRegionProvider() {

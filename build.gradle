@@ -10,6 +10,7 @@ buildscript {
 	repositories.jcenter()
 	dependencies {
 		classpath 'org.xtext:xtext-gradle-plugin:1.0.19'
+		classpath 'org.standardout:bnd-platform:1.7.0'
 	}
 }
 
@@ -17,16 +18,18 @@ apply from: "${rootDir}/gradle/versions.gradle"
 
 subprojects {
 	repositories.jcenter()
-	
+
 	group = 'io.typefox.xtext'
 	version = rootProject.version
-	
+
 	apply plugin: 'org.xtext.xtend'
 	apply plugin: 'eclipse'
 	apply plugin: 'maven'
-	
+	apply plugin: 'org.standardout.bnd-platform'
+
 	apply from: "${rootDir}/gradle/java-compiler-settings.gradle"
 	apply from: "${rootDir}/gradle/maven-deployment.gradle"
+	apply from: "${rootDir}/gradle/p2-deployment.gradle"
 }
 
 task clean(type: Delete) {

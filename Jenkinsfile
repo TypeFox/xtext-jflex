@@ -16,7 +16,7 @@ node {
     }
     
     stage('Gradle Build') {
-        sh "./gradlew clean build createLocalMavenRepo --refresh-dependencies --continue"
+        sh "./gradlew clean build createLocalMavenRepo updateSiteZip --refresh-dependencies --continue"
     }
 
     archive 'build/**'

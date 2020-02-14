@@ -39,7 +39,7 @@ def configurePom = { pom ->
 // We need to wait until the project's own build file has been executed
 // so we can use the title and description settings for setting up Maven publishing.
 afterEvaluate {
-	
+
 	task createLocalMavenRepo(type: Upload) {
 		group = 'Upload'
 		description = 'Create or update the local Maven repository'

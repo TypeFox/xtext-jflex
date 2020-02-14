@@ -1,0 +1,5 @@
+platform {
+	feature(id: 'io.typefox.xtext.jflex-fragment.feature', name: 'Eclipse feature wrapping the JFlex generator fragment for Xtext', version: "${version}") {
+		plugin "io.typefox.xtext:jflex-fragment:${version}"
+	}
+}
